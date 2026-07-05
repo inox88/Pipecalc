@@ -269,7 +269,6 @@
         const rSign = (riseDir === 'Up') ? 1 : -1;
         const oSign = (offsetDir === 'Right') ? 1 : -1;
 
-        // Base 3D space placement
         const startX = 0;
         const startY = 0;
         const startZ = -180;
@@ -287,11 +286,10 @@
         const sNode2 = project(n2x, n2y, n2z, w, h);
         const sEnd = project(n2x, n2y, n2z + 180, w, h);
 
-        // Core dynamic 3D calculation box points
-        let corner1 = project(n1x, n1y, n2z, w, h); // A projected forward
-        let corner2 = project(n2x, n1y, n2z, w, h); // Horizontal offset node
-        let corner3 = project(n2x, n2y, n2z, w, h); // Target terminal point B
-        let corner4 = project(n1x, n2y, n2z, w, h); // Vertical rise node
+        let corner1 = project(n1x, n1y, n2z, w, h); 
+        let corner2 = project(n2x, n1y, n2z, w, h); 
+        let corner3 = project(n2x, n2y, n2z, w, h); 
+        let corner4 = project(n1x, n2y, n2z, w, h); 
 
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
         ctx.lineWidth = 1;
@@ -304,21 +302,17 @@
 
         ctx.strokeStyle = '#ffaa00'; ctx.lineWidth = 1.5;
         
-        // CORRECTION MATRIX FOR PROJECTION LABELS
         if (currentView === 'PLAN') {
-            // Plan View: Purely horizontal drift (X-axis). Shows how far it steps left/right away from line A.
             ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y); ctx.stroke();
             let midOffset = { x: (corner1.x + corner2.x)/2, y: (corner1.y + corner2.y)/2 + 14 };
             drawText(`OFFSET: ${offsetVal}mm (${offsetDir})`, midOffset, '#ffaa00', 'center');
         } 
         else if (currentView === 'ELEV') {
-            // Elevation View: Purely vertical height difference (Y-axis). Shows the step clearing the tray.
             ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner4.x, corner4.y); ctx.stroke();
             let midRise = { x: (corner1.x + corner4.x)/2 - 12, y: (corner1.y + corner4.y)/2 + 4 };
             drawText(`RISE: ${riseVal}mm (${riseDir})`, midRise, '#ffaa00', 'right');
         } 
         else if (currentView === 'ENDA' || currentView === 'ENDB') {
-            // Looking right down the bore: Show the full cross-hair layout.
             ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(corner2.x, corner2.y); ctx.lineTo(corner3.x, corner3.y); ctx.stroke();
             
@@ -328,14 +322,12 @@
             drawText(`RISE: ${riseVal}mm`, txtRise, '#ffaa00', 'left');
         } 
         else {
-            // ISO Full Perspective
             ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(corner2.x, corner2.y); ctx.lineTo(corner3.x, corner3.y); ctx.stroke();
             let midTravel = { x: (sNode1.x + sNode2.x)/2, y: (sNode1.y + sNode2.y)/2 - 15 };
             drawText(`TRAVEL center-center: ${travel.toFixed(1)}mm`, midTravel, '#00ffcc', 'center');
         }
 
-        // Output solid pipe segment line width scaling
         let pRad = 12;
         if (currentView === 'ENDA' || currentView === 'ENDB') pRad = 20; 
         
@@ -357,6 +349,29 @@
             drawText("Center B", {x: sNode2.x, y: sNode2.y + 14}, '#ef4444');
         }
 
-        ctx.fillStyle = '#888'; ctx.font = "bold 10px monospace"; ctx.textAlign =
-            
+        ctx.fillStyle = '#888'; ctx.font = "bold 10px monospace"; ctx.textAlign = "left";
+        ctx.fillText(`VIEW: ${currentView}`, 10, h - 15);
+    }
+
+    document.getElementById('rise').addEventListener('input', updateAll);
+    document.getElementById('offset').addEventListener('input', updateAll);
+    document.getElementById('angle').addEventListener('change', updateAll);
+
+    document.getElementById('btn-rise-up').addEventListener('click', () => setDir('rise', 'Up'));
+    document.getElementById('btn-rise-down').addEventListener('click', () => setDir('rise', 'Down'));
+    document.getElementById('btn-off-right').addEventListener('click', () => setDir('offset', 'Right'));
+    document.getElementById('btn-off-left').addEventListener('click', () => setDir('offset', 'Left'));
+
+    document.getElementById('view-iso').addEventListener('click', () => setView('ISO'));
+    document.getElementById('view-plan').addEventListener('click', () => setView('PLAN'));
+    document.getElementById('view-elev').addEventListener('click', () => setView('ELEV'));
+    document.getElementById('view-enda').addEventListener('click', () => setView('ENDA'));
+    document.getElementById('view-endb').addEventListener('click', () => setView('ENDB'));
+
+    window.addEventListener('resize', () => { resizeCanvas(); updateAll(); });
+    setTimeout(() => { resizeCanvas(); updateAll(); }, 200);
+</script>
+</body>
+</html>
+
 

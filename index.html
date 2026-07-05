@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shop Floor Offset Blueprint</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 15px;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        h2 { text-align: center; color: #00ffcc; margin-top: 0; margin-bottom: 15px; font-size: 16px; letter-spacing: 1px; }
+        .input-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; color: #bbbbbb; font-size: 14px; }
+        input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #2a2a2a;
+            color: #fff;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .row { display: flex; gap: 8px; }
+        .row > div { flex: 1; }
+        .toggle-btn {
+            width: 100%;
+            padding: 10px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            outline: none;
+        }
+        .toggle-btn.active {
+            background: #00ffcc;
+            color: #121212;
+            border-color: #00ffcc;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 300px;
+            background: #09090b;
+            border-radius: 4px;
+            margin-top: 15px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #27272a;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+        .output-box {
+            margin-top: 15px;
+            background: #252525;
+            padding: 12px;
+            border-left: 5px solid #00ffcc;
+            border-radius: 4px;
+        }
+        .output-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 16px;
+        }
+        .output-line:last-child { margin-bottom: 0; }
+        .val { font-weight: bold; color: #00ffcc; font-size: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>SHOP FLOOR BLUEPRINT VISUALIZER</h2>
+    
+    <div class="input-group">
+        <label>Rise / Fall (mm)</label>
+        <div class="row">
+            <div style="flex: 2;"><input type="number" id="rise" value="850"></div>
+            <div><button id="btn-rise-up" class="toggle-btn active">UP</button></div>
+            <div><button id="btn-rise-down" class="toggle-btn">DOWN</button></div>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>Offset In / Out (mm)</label>
+        <div class="row">
+            <div style="flex: 2;"><input type="number" id="offset" value="1125"></div>
+            <div><button id="btn-off-right" class="toggle-btn active">RIGHT</button></div>
+            <div><button id="btn-off-left" class="toggle-btn">LEFT</button></div>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>Fitting Angle</label>
+        <select id="angle">
+            <option value="45" selected>45° Elbow</option>
+            <option value="90">90° Elbow</option>
+            <option value="30">30° Elbow</option>
+            <option value="22.5">22.5° Elbow</option>
+            <option value="11.25">11.25° Elbow</option>
+        </select>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="pipeCanvas"></canvas>
+    </div>
+
+    <div class="output-box">
+        <div class="output-line">
+            <span>Cut Length (Travel C-C):</span>
+            <span class="val" id="travelOut">1994.0 mm</span>
+        </div>
+        <div class="output-line">
+            <span>Roll Orientation Angle:</span>
+            <span class="val" id="rollOut">52.9°</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    let riseDir = 'Up';
+    let offsetDir = 'Right';
+
+    const rotX = -0.35; 
+    const rotY = 0.55;
+
+    const canvas = document.getElementById('pipeCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    function setDir(type, value) {
+        if (type === 'rise') {
+            riseDir = value;
+            document.getElementById('btn-rise-up').classList.toggle('active', value === 'Up');
+            document.getElementById('btn-rise-down').classList.toggle('active', value === 'Down');
+        } else {
+            offsetDir = value;
+            document.getElementById('btn-off-right').classList.toggle('active', value === 'Right');
+            document.getElementById('btn-off-left').classList.toggle('active', value === 'Left');
+        }
+        updateAll();
+    }
+
+    function project(x, y, z, width, height) {
+        let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+        let x1 = x * cosY - z * sinY;
+        let z1 = x * sinY + z * cosY;
+        
+        let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+        let y2 = y * cosX - z1 * sinX;
+        
+        const scale = 0.11; 
+        return { x: width / 2 + x1 * scale, y: height / 2 - y2 * scale };
+    }
+
+    function drawText(txt, pt, color, align="center") {
+        ctx.fillStyle = color;
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = align;
+        ctx.fillText(txt, pt.x, pt.y);
+    }
+
+    function drawPipeCylinder(p1, p2, radius, color) {
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = radius * 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = 2;
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+    }
+
+    function updateAll() {
+        const rect = canvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        
+        ctx.clearRect(0, 0, w, h);
+
+        const riseVal = parseFloat(document.getElementById('rise').value) || 0;
+        const offsetVal = parseFloat(document.getElementById('offset').value) || 0;
+        const angleDeg = parseFloat(document.getElementById('angle').value);
+
+        const trueOffset = Math.sqrt((riseVal * riseVal) + (offsetVal * offsetVal));
+        const travel = trueOffset / Math.sin(angleDeg * (Math.PI / 180));
+        const rollAngle = Math.atan2(offsetVal, riseVal) * (180 / Math.PI);
+
+        document.getElementById('travelOut').innerText = travel.toFixed(1) + " mm";
+        document.getElementById('rollOut').innerText = rollAngle.toFixed(1) + "°";
+
+        const rSign = (riseDir === 'Up') ? 1 : -1;
+        const oSign = (offsetDir === 'Right') ? 1 : -1;
+
+        const startX = -offsetVal * oSign * 0.5;
+        const startY = -riseVal * rSign * 0.5;
+        const startZ = -200;
+
+        const n1x = startX, n1y = startY, n1z = 0;
+        const n2x = startX + (offsetVal * oSign), n2y = startY + (riseVal * rSign), n2z = 200;
+
+        const sStart = project(startX, startY, startZ, w, h);
+        const sNode1 = project(n1x, n1y, n1z, w, h);
+        const sNode2 = project(n2x, n2y, n2z, w, h);
+        const sEnd = project(n2x, n2y, n2z + 200, w, h);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        let corner1 = project(n1x, n1y, n1z, w, h);
+        let corner2 = project(n2x, n1y, n1z, w, h);
+        let corner3 = project(n2x, n2y, n1z, w, h);
+        let corner4 = project(n1x, n2y, n1z, w, h);
+        ctx.beginPath();
+        ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y);
+        ctx.lineTo(corner3.x, corner3.y); ctx.lineTo(corner4.x, corner4.y);
+        ctx.closePath(); ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.strokeStyle = '#ffaa00'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner4.x, corner4.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(corner4.x, corner4.y); ctx.lineTo(corner3.x, corner3.y); ctx.stroke();
+
+        let midRise = { x: (corner1.x + corner4.x)/2 - 12, y: (corner1.y + corner4.y)/2 };
+        let midOffset = { x: (corner4.x + corner3.x)/2, y: (corner4.y + corner3.y)/2 - 10 };
+        let midTravel = { x: (sNode1.x + sNode2.x)/2, y: (sNode1.y + sNode2.y)/2 - 15 };
+
+        drawText(`${riseVal}mm`, midRise, '#ffaa00', 'right');
+        drawText(`${offsetVal}mm`, midOffset, '#ffaa00', 'center');
+        drawText(`${travel.toFixed(1)}mm`, midTravel, '#00ffcc', 'center');
+
+        const pRad = 12;
+        drawPipeCylinder(sStart, sNode1, pRad, '#4b5563'); 
+        drawPipeCylinder(sNode1, sNode2, pRad, '#00ffcc'); 
+        drawPipeCylinder(sNode2, sEnd, pRad, '#6b7280'); 
+
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath(); ctx.arc(sNode1.x, sNode1.y, 4, 0, 2*Math.PI); ctx.fill();
+        ctx.beginPath(); ctx.arc(sNode2.x, sNode2.y, 4, 0, 2*Math.PI); ctx.fill();
+        drawText("A", {x: sNode1.x, y: sNode1.y + 14}, '#ef4444');
+        drawText("B", {x: sNode2.x, y: sNode2.y + 14}, '#ef4444');
+    }
+
+    document.getElementById('rise').addEventListener('input', updateAll);
+    document.getElementById('offset').addEventListener('input', updateAll);
+    document.getElementById('angle').addEventListener('change', updateAll);
+
+    document.getElementById('btn-rise-up').addEventListener('click', () => setDir('rise', 'Up'));
+    document.getElementById('btn-rise-down').addEventListener('click', () => setDir('rise', 'Down'));
+    document.getElementById('btn-off-right').addEventListener('click', () => setDir('offset', 'Right'));
+    document.getElementById('btn-off-left').addEventListener('click', () => setDir('offset', 'Left'));
+
+    window.addEventListener('resize', () => { resizeCanvas(); updateAll(); });
+
+    setTimeout(() => { resizeCanvas(); updateAll(); }, 200);
+</script>
+</body>
+</html>
+

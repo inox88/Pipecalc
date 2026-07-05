@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,7 +21,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-        h2 { text-align: center; color: #00ffcc; margin-top: 0; margin-bottom: 15px; font-size: 16px; letter-spacing: 1px; }
+        h2 { text-align: center; color: #00ffcc; margin-top: 0; margin-bottom: 15px; font-size: 15px; letter-spacing: 1px; }
         .input-group { margin-bottom: 12px; }
         label { display: block; margin-bottom: 4px; font-weight: bold; color: #bbbbbb; font-size: 14px; }
         input[type="number"], select {
@@ -168,7 +166,6 @@
     let offsetDir = 'Right';
     let currentView = 'ISO';
 
-    // Rotation angles configurations for the view matrix
     let rotX = -0.35; 
     let rotY = 0.55;
 
@@ -202,12 +199,11 @@
         const views = ['iso', 'plan', 'elev', 'enda', 'endb'];
         views.forEach(v => document.getElementById(`view-${v}`).classList.toggle('active', v === viewName.toLowerCase()));
         
-        // Lock precise viewing vector parameters
         if (viewName === 'ISO') { rotX = -0.35; rotY = 0.55; }
-        else if (viewName === 'PLAN') { rotX = -Math.PI/2; rotY = 0; } // Direct Top-Down
-        else if (viewName === 'ELEV') { rotX = 0; rotY = 0; }        // Direct Front Face
-        else if (viewName === 'ENDA') { rotX = 0; rotY = Math.PI/2; } // Looking down target entry barrel
-        else if (viewName === 'ENDB') { rotX = 0; rotY = -Math.PI/2; } // Reverse barrel view
+        else if (viewName === 'PLAN') { rotX = -Math.PI/2; rotY = 0; } 
+        else if (viewName === 'ELEV') { rotX = 0; rotY = 0; }        
+        else if (viewName === 'ENDA') { rotX = 0; rotY = Math.PI/2; } 
+        else if (viewName === 'ENDB') { rotX = 0; rotY = -Math.PI/2; } 
         
         updateAll();
     }
@@ -220,10 +216,9 @@
         let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
         let y2 = y * cosX - z1 * sinX;
         
-        // Adjust dynamic scaling based on the chosen view orientation profile
         let scale = 0.11;
         if (currentView === 'PLAN' || currentView === 'ELEV') scale = 0.14;
-        if (currentView === 'ENDA' || currentView === 'ENDB') scale = 0.16;
+        if (currentView === 'ENDA' || currentView === 'ENDB') scale = 0.18;
 
         return { x: width / 2 + x1 * scale, y: height / 2 - y2 * scale };
     }
@@ -274,65 +269,97 @@
         const rSign = (riseDir === 'Up') ? 1 : -1;
         const oSign = (offsetDir === 'Right') ? 1 : -1;
 
-        const startX = -offsetVal * oSign * 0.5;
-        const startY = -riseVal * rSign * 0.5;
-        const startZ = -200;
+        // Corrected layout coordinates to ensure End Views and Side views project perfectly
+        // Z axis handles the length tracking between centers.
+        const startX = 0;
+        const startY = 0;
+        const startZ = -180;
 
-        const n1x = startX, n1y = startY, n1z = 0;
-        const n2x = startX + (offsetVal * oSign), n2y = startY + (riseVal * rSign), n2z = 200;
+        const n1x = 0;
+        const n1y = 0;
+        const n1z = 0; // Center A
+
+        const n2x = offsetVal * oSign;
+        const n2y = riseVal * rSign;
+        const n2z = 220; // Center B offset along the run
 
         const sStart = project(startX, startY, startZ, w, h);
         const sNode1 = project(n1x, n1y, n1z, w, h);
         const sNode2 = project(n2x, n2y, n2z, w, h);
-        const sEnd = project(n2x, n2y, n2z + 200, w, h);
+        const sEnd = project(n2x, n2y, n2z + 180, w, h);
 
-        // Reference Box Layout
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        // Reference Box Profile Cage
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
         ctx.lineWidth = 1;
         ctx.setLineDash([3, 3]);
-        let corner1 = project(n1x, n1y, n1z, w, h);
-        let corner2 = project(n2x, n1y, n1z, w, h);
-        let corner3 = project(n2x, n2y, n1z, w, h);
-        let corner4 = project(n1x, n2y, n1z, w, h);
+        
+        // Match projection box to true orientation coordinates
+        let corner1 = project(n1x, n1y, n2z, w, h); 
+        let corner2 = project(n2x, n1y, n2z, w, h); 
+        let corner3 = project(n2x, n2y, n2z, w, h); 
+        let corner4 = project(n1x, n2y, n2z, w, h); 
+        
         ctx.beginPath();
         ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y);
         ctx.lineTo(corner3.x, corner3.y); ctx.lineTo(corner4.x, corner4.y);
         ctx.closePath(); ctx.stroke();
         ctx.setLineDash([]);
 
-        // Contextual measurements labels based on active plane mapping
+        // Contextual measurements labels based on your exact layout specifications
         ctx.strokeStyle = '#ffaa00'; ctx.lineWidth = 1.5;
-        if (currentView !== 'ENDA' && currentView !== 'ENDB') {
-            ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner4.x, corner4.y); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(corner4.x, corner4.y); ctx.lineTo(corner3.x, corner3.y); ctx.stroke();
-
-            let midRise = { x: (corner1.x + corner4.x)/2 - 12, y: (corner1.y + corner4.y)/2 };
-            let midOffset = { x: (corner4.x + corner3.x)/2, y: (corner4.y + corner3.y)/2 - 10 };
-            drawText(`${riseVal}mm`, midRise, '#ffaa00', 'right');
-            drawText(`${offsetVal}mm`, midOffset, '#ffaa00', 'center');
-        }
-
-        if (currentView === 'ISO' || currentView === 'ELEV') {
+        
+        if (currentView === 'PLAN') {
+            // Plan view highlights horizontal shift dodging the structural beam
+            ctx.beginPath(); ctx.moveTo(sNode1.x, sNode1.y); ctx.lineTo(corner2.x, corner2.y); ctx.stroke();
+            let midOffset = { x: (sNode1.x + corner2.x)/2, y: (sNode1.y + corner2.y)/2 - 10 };
+            drawText(`OFFSET: ${offsetVal}mm (${offsetDir})`, midOffset, '#ffaa00', 'center');
+        } 
+        else if (currentView === 'ELEV') {
+            // Side Elevation view highlights vertical rise stepping over cable tray
+            ctx.beginPath(); ctx.moveTo(sNode1.x, sNode1.y); ctx.lineTo(corner4.x, corner4.y); ctx.stroke();
+            let midRise = { x: (sNode1.x + corner4.x)/2 - 12, y: (sNode1.y + corner4.y)/2 };
+            drawText(`RISE: ${riseVal}mm (${riseDir})`, midRise, '#ffaa00', 'right');
+        } 
+        else if (currentView === 'ENDA' || currentView === 'ENDB') {
+            // End views display cross-hair alignment for bench clocking
+            ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(corner2.x, corner2.y); ctx.lineTo(corner3.x, corner3.y); ctx.stroke();
+            
+            let txtOffset = { x: (corner1.x + corner2.x)/2, y: (corner1.y + corner2.y)/2 + 14 };
+            let txtRise = { x: (corner2.x + corner3.x)/2 + 10, y: (corner2.y + corner3.y)/2 };
+            drawText(`${offsetVal}mm`, txtOffset, '#ffaa00', 'center');
+            drawText(`${riseVal}mm`, txtRise, '#ffaa00', 'left');
+        } 
+        else {
+            // Isometric Full View
+            ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(corner2.x, corner2.y); ctx.lineTo(corner3.x, corner3.y); ctx.stroke();
             let midTravel = { x: (sNode1.x + sNode2.x)/2, y: (sNode1.y + sNode2.y)/2 - 15 };
-            drawText(`${travel.toFixed(1)}mm`, midTravel, '#00ffcc', 'center');
+            drawText(`TRAVEL: ${travel.toFixed(1)}mm`, midTravel, '#00ffcc', 'center');
         }
 
-        // Draw solid structural cylinders
-        const pRad = (currentView === 'ENDA' || currentView === 'ENDB') ? 22 : 12;
+        // Render solid cylinders
+        let pRad = 12;
+        if (currentView === 'ENDA' || currentView === 'ENDB') pRad = 20; // Bores appear full size looking straight on
+        
         drawPipeCylinder(sStart, sNode1, pRad, '#4b5563'); 
-        drawPipeCylinder(sNode1, sNode2, pRad, '#00ffcc'); 
+        drawPipeCylinder(sNode1, sNode2, pRad, '#00ffcc'); // Travel Segment
         drawPipeCylinder(sNode2, sEnd, pRad, '#6b7280'); 
 
         // Center markers
         ctx.fillStyle = '#ef4444';
         ctx.beginPath(); ctx.arc(sNode1.x, sNode1.y, 4, 0, 2*Math.PI); ctx.fill();
         ctx.beginPath(); ctx.arc(sNode2.x, sNode2.y, 4, 0, 2*Math.PI); ctx.fill();
-        drawText("A", {x: sNode1.x, y: sNode1.y + 14}, '#ef4444');
-        drawText("B", {x: sNode2.x, y: sNode2.y + 14}, '#ef4444');
-
-        // View Legend Indicator
-        ctx.fillStyle = '#888'; ctx.font = "bold 10px monospace"; ctx.textAlign = "left";
-        ctx.fillText(`VIEW: ${currentView}`, 10, h - 15);
+        
+        if (currentView === 'ENDA') {
+            drawText("PIPE A FACE (Looking toward B)", {x: w/2, y: 25}, '#00ffcc');
+            drawText(`ROLL: ${rollAngle.toFixed(1)}°`, {x: sNode2.x, y: sNode2.y - 15}, '#00ffcc');
+        } else if (currentView === 'ENDB') {
+            drawText("PIPE B FACE (Looking back to A)", {x: w/2, y: 25}, '#00ffcc');
+        } else {
+            drawText("Center A", {x: sNode1.x, y: sNode1.y + 14}, '#ef4444');
+            drawText("Center B", {x: sNode2.x, y: sNode2.y + 14}, '#ef4444');
+        }
     }
 
     document.getElementById('rise').addEventListener('input', updateAll);
@@ -344,7 +371,6 @@
     document.getElementById('btn-off-right').addEventListener('click', () => setDir('offset', 'Right'));
     document.getElementById('btn-off-left').addEventListener('click', () => setDir('offset', 'Left'));
 
-    // View Bar Attachments
     document.getElementById('view-iso').addEventListener('click', () => setView('ISO'));
     document.getElementById('view-plan').addEventListener('click', () => setView('PLAN'));
     document.getElementById('view-elev').addEventListener('click', () => setView('ELEV'));
@@ -356,3 +382,4 @@
 </script>
 </body>
 </html>
+

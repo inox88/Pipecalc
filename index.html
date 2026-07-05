@@ -266,64 +266,69 @@
         document.getElementById('travelOut').innerText = travel.toFixed(1) + " mm";
         document.getElementById('rollOut').innerText = rollAngle.toFixed(1) + "°";
 
+        // TRUE ORIENTATION SIGNALS:
+        // Up = positive Y, Down = negative Y
+        // Right = positive X, Left = negative X
         const rSign = (riseDir === 'Up') ? 1 : -1;
         const oSign = (offsetDir === 'Right') ? 1 : -1;
 
-        const startX = 0;
-        const startY = 0;
-        const startZ = -180;
+        // Space layout anchor references
+        const n1x = -offsetVal * oSign * 0.5;
+        const n1y = -riseVal * rSign * 0.5;
+        const n1z = -150; // Center A back position
 
-        const n1x = 0;
-        const n1y = 0;
-        const n1z = 0; 
+        const n2x = n1x + (offsetVal * oSign);
+        const n2y = n1y + (riseVal * rSign);
+        const n2z = 150; // Center B forward position
 
-        const n2x = offsetVal * oSign;
-        const n2y = riseVal * rSign;
-        const n2z = 220; 
+        const sStart = project(n1x, n1y, n1z - 150, w, h);
+        const sNode1 = project(n1x, n1y, n1z, w, h); // Center A
+        const sNode2 = project(n2x, n2y, n2z, w, h); // Center B
+        const sEnd = project(n2x, n2y, n2z + 150, w, h);
 
-        const sStart = project(startX, startY, startZ, w, h);
-        const sNode1 = project(n1x, n1y, n1z, w, h);
-        const sNode2 = project(n2x, n2y, n2z, w, h);
-        const sEnd = project(n2x, n2y, n2z + 180, w, h);
-
-        let corner1 = project(n1x, n1y, n2z, w, h); 
-        let corner2 = project(n2x, n1y, n2z, w, h); 
-        let corner3 = project(n2x, n2y, n2z, w, h); 
-        let corner4 = project(n1x, n2y, n2z, w, h); 
+        // Map box frame directly to actual displacement coordinates
+        let boxCorner1 = project(n1x, n1y, n2z, w, h); 
+        let boxCorner2 = project(n2x, n1y, n2z, w, h); 
+        let boxCorner3 = project(n2x, n2y, n2z, w, h); 
+        let boxCorner4 = project(n1x, n2y, n2z, w, h); 
 
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
         ctx.lineWidth = 1;
         ctx.setLineDash([3, 3]);
         ctx.beginPath();
-        ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y);
-        ctx.lineTo(corner3.x, corner3.y); ctx.lineTo(corner4.x, corner4.y);
+        ctx.moveTo(boxCorner1.x, boxCorner1.y); ctx.lineTo(boxCorner2.x, boxCorner2.y);
+        ctx.lineTo(boxCorner3.x, boxCorner3.y); ctx.lineTo(boxCorner4.x, boxCorner4.y);
         ctx.closePath(); ctx.stroke();
         ctx.setLineDash([]);
 
         ctx.strokeStyle = '#ffaa00'; ctx.lineWidth = 1.5;
         
         if (currentView === 'PLAN') {
-            ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y); ctx.stroke();
-            let midOffset = { x: (corner1.x + corner2.x)/2, y: (corner1.y + corner2.y)/2 + 14 };
+            // Plan View: Draw along the direct horizontal shift boundary line
+            ctx.beginPath(); ctx.moveTo(boxCorner1.x, boxCorner1.y); ctx.lineTo(boxCorner2.x, boxCorner2.y); ctx.stroke();
+            let midOffset = { x: (boxCorner1.x + boxCorner2.x)/2, y: (boxCorner1.y + boxCorner2.y)/2 + 14 };
             drawText(`OFFSET: ${offsetVal}mm (${offsetDir})`, midOffset, '#ffaa00', 'center');
         } 
         else if (currentView === 'ELEV') {
-            ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner4.x, corner4.y); ctx.stroke();
-            let midRise = { x: (corner1.x + corner4.x)/2 - 12, y: (corner1.y + corner4.y)/2 + 4 };
+            // Elevation View: Draw along the direct vertical height boundary line
+            ctx.beginPath(); ctx.moveTo(boxCorner1.x, boxCorner1.y); ctx.lineTo(boxCorner4.x, boxCorner4.y); ctx.stroke();
+            let midRise = { x: (boxCorner1.x + boxCorner4.x)/2 - 12, y: (boxCorner1.y + boxCorner4.y)/2 + 4 };
             drawText(`RISE: ${riseVal}mm (${riseDir})`, midRise, '#ffaa00', 'right');
         } 
         else if (currentView === 'ENDA' || currentView === 'ENDB') {
-            ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(corner2.x, corner2.y); ctx.lineTo(corner3.x, corner3.y); ctx.stroke();
+            // Cross-hair reference drawing on target bore faces
+            ctx.beginPath(); ctx.moveTo(boxCorner1.x, boxCorner1.y); ctx.lineTo(boxCorner2.x, boxCorner2.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(boxCorner2.x, boxCorner2.y); ctx.lineTo(boxCorner3.x, boxCorner3.y); ctx.stroke();
             
-            let txtOffset = { x: (corner1.x + corner2.x)/2, y: (corner1.y + corner2.y)/2 + 14 };
-            let txtRise = { x: (corner2.x + corner3.x)/2 + 10, y: (corner2.y + corner3.y)/2 };
-            drawText(`OFFSET: ${offsetVal}mm`, txtOffset, '#ffaa00', 'center');
-            drawText(`RISE: ${riseVal}mm`, txtRise, '#ffaa00', 'left');
+            let txtOffset = { x: (boxCorner1.x + boxCorner2.x)/2, y: (boxCorner1.y + boxCorner2.y)/2 + 14 };
+            let txtRise = { x: (boxCorner2.x + boxCorner3.x)/2 + 10, y: (boxCorner2.y + boxCorner3.y)/2 };
+            drawText(`${offsetVal}mm`, txtOffset, '#ffaa00', 'center');
+            drawText(`${riseVal}mm`, txtRise, '#ffaa00', 'left');
         } 
         else {
-            ctx.beginPath(); ctx.moveTo(corner1.x, corner1.y); ctx.lineTo(corner2.x, corner2.y); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(corner2.x, corner2.y); ctx.lineTo(corner3.x, corner3.y); ctx.stroke();
+            // ISO Main View
+            ctx.beginPath(); ctx.moveTo(boxCorner1.x, boxCorner1.y); ctx.lineTo(boxCorner2.x, boxCorner2.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(boxCorner2.x, boxCorner2.y); ctx.lineTo(boxCorner3.x, boxCorner3.y); ctx.stroke();
             let midTravel = { x: (sNode1.x + sNode2.x)/2, y: (sNode1.y + sNode2.y)/2 - 15 };
             drawText(`TRAVEL center-center: ${travel.toFixed(1)}mm`, midTravel, '#00ffcc', 'center');
         }
@@ -373,5 +378,6 @@
 </script>
 </body>
 </html>
+
 
 

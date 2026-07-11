@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Shop Floor Offset Blueprint</title>
+    <title>Fixed-Point Tie-In Calculator</title>
     <style>
         body {
             background-color: #121212;
@@ -21,12 +21,12 @@
             border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-        h2 { text-align: center; color: #00ffcc; margin-top: 0; margin-bottom: 15px; font-size: 16px; letter-spacing: 1px; }
-        .input-group { margin-bottom: 12px; }
-        label { display: block; margin-bottom: 4px; font-weight: bold; color: #bbbbbb; font-size: 14px; }
+        h2 { text-align: center; color: #00ffcc; margin-top: 0; margin-bottom: 20px; font-size: 16px; letter-spacing: 1px; }
+        .input-group { margin-bottom: 14px; }
+        label { display: block; margin-bottom: 6px; font-weight: bold; color: #bbbbbb; font-size: 14px; }
         input[type="number"], select {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border: 1px solid #333;
             border-radius: 4px;
             background: #2a2a2a;
@@ -38,7 +38,7 @@
         .row > div { flex: 1; }
         .toggle-btn {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             background: #333;
             color: #fff;
             border: 1px solid #444;
@@ -53,95 +53,65 @@
             color: #121212;
             border-color: #00ffcc;
         }
-        #canvas-container {
-            width: 100%;
-            height: 300px;
-            background: #09090b;
-            border-radius: 4px;
-            margin-top: 15px;
-            position: relative;
-            overflow: hidden;
-            border: 1px solid #27272a;
-        }
-        canvas { width: 100%; height: 100%; display: block; }
-        .view-bar {
-            display: flex;
-            gap: 4px;
-            margin-top: 8px;
-            margin-bottom: 15px;
-        }
-        .view-btn {
-            flex: 1;
-            padding: 8px 2px;
-            background: #222;
-            color: #aaa;
-            border: 1px solid #333;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .view-btn.active {
-            background: #2563eb;
-            color: #fff;
-            border-color: #3b82f6;
-        }
         .output-box {
-            margin-top: 15px;
+            margin-top: 20px;
             background: #252525;
-            padding: 12px;
+            padding: 15px;
             border-left: 5px solid #00ffcc;
             border-radius: 4px;
         }
         .output-line {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
             font-size: 16px;
         }
         .output-line:last-child { margin-bottom: 0; }
-        .val { font-weight: bold; color: #00ffcc; font-size: 20px; }
+        .val { font-weight: bold; color: #00ffcc; font-size: 22px; }
+        .note-box {
+            margin-top: 15px;
+            background: #2a2115;
+            border: 1px solid #ff9900;
+            padding: 10px;
+            border-radius: 4px;
+            color: #ffb366;
+            font-size: 13px;
+            text-align: center;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>SHOP FLOOR BLUEPRINT VISUALIZER</h2>
-    
-    <!-- Calculation Mode Switcher -->
-    <div class="view-bar" style="margin-bottom: 15px;">
-        <button id="mode-std" class="view-btn active" onclick="setCalcMode('STD')">STANDARD RUN</button>
-        <button id="mode-fixed" class="view-btn" onclick="setCalcMode('FIXED')" style="border-left: none;">FIXED-POINT 3D</button>
-    </div>
+    <h2>FIXED-POINT TIE-IN CALCULATOR</h2>
     
     <div class="input-group">
-        <label id="rise-label">Rise / Fall (mm)</label>
+        <label>Rise / Fall (mm)</label>
         <div class="row">
-            <div style="flex: 2;"><input type="number" id="rise" value="600" oninput="updateAll()"></div>
+            <div style="flex: 2;"><input type="number" id="rise" value="600" oninput="calculateTieIn()"></div>
             <div><button id="btn-rise-up" class="toggle-btn active" onclick="setDir('rise', 'Up')">UP</button></div>
             <div><button id="btn-rise-down" class="toggle-btn" onclick="setDir('rise', 'Down')">DOWN</button></div>
         </div>
     </div>
 
     <div class="input-group">
-        <label id="offset-label">Offset Side Shift In / Out (mm)</label>
+        <label>Side Offset In / Out (mm)</label>
         <div class="row">
-            <div style="flex: 2;"><input type="number" id="offset" value="413" oninput="updateAll()"></div>
+            <div style="flex: 2;"><input type="number" id="offset" value="413" oninput="calculateTieIn()"></div>
             <div><button id="btn-off-right" class="toggle-btn active" onclick="setDir('offset', 'Right')">RIGHT</button></div>
             <div><button id="btn-off-left" class="toggle-btn" onclick="setDir('offset', 'Left')">LEFT</button></div>
         </div>
     </div>
 
-    <!-- Hidden field for Fixed-Point Constraint Calculations -->
-    <div class="input-group" id="linear-group" style="display: none;">
+    <div class="input-group">
         <label>Linear Distance / Forward Run (mm)</label>
-        <input type="number" id="linearDist" value="435.5" oninput="updateAll()">
+        <input type="number" id="linearDist" value="435.5" oninput="calculateTieIn()">
     </div>
 
-    <!-- Fitting Selection Field (Used only in Standard Mode) -->
-    <div class="input-group" id="angle-group">
-        <label>Fitting Angle</label>
-        <select id="angle" onchange="updateAll()">
+    <div class="input-group">
+        <label>Fitting Degree to Use</label>
+        <select id="angle" onchange="calculateTieIn()">
             <option value="45" selected>45° Elbow</option>
             <option value="90">90° Elbow</option>
             <option value="30">30° Elbow</option>
@@ -150,84 +120,29 @@
         </select>
     </div>
 
-    <div id="canvas-container">
-        <canvas id="pipeCanvas"></canvas>
-    </div>
-    
-    <div class="view-bar">
-        <button id="view-iso" class="view-btn active" onclick="setView('ISO')">ISO</button>
-        <button id="view-plan" class="view-btn" onclick="setView('PLAN')">PLAN</button>
-        <button id="view-elev" class="view-btn" onclick="setView('ELEV')">ELEV</button>
-        <button id="view-enda" class="view-btn" onclick="setView('ENDA')">END A</button>
-        <button id="view-endb" class="view-btn" onclick="setView('ENDB')">END B</button>
-    </div>
-
     <div class="output-box">
         <div class="output-line">
-            <span>Cut Length (Travel C-C):</span>
+            <span>True Travel (Center-to-Center):</span>
             <span class="val" id="travelOut">-</span>
         </div>
         <div class="output-line">
-            <span id="fittingLabel">Selected Elbow:</span>
-            <span class="val" id="fittingOut">-</span>
-        </div>
-        <div class="output-line">
-            <span>Roll Orientation Angle:</span>
+            <span>Elbow Roll Orientation:</span>
             <span class="val" id="rollOut">-</span>
         </div>
+    </div>
+
+    <div class="note-box">
+        ⚠️ REMEMBER: Deduct your fitting allowance / take-out from the center-to-center travel before cutting!
     </div>
 </div>
 
 <script>
-    let calcMode = 'STD'; 
     let riseDir = 'Up';
     let offsetDir = 'Right';
-    let currentView = 'ISO';
 
-    let rotX = -0.35; 
-    let rotY = 0.55;
-
-    const canvas = document.getElementById('pipeCanvas');
-    const ctx = canvas.getContext('2d');
-
-    // Make sure DOM elements exist and layout settles before firing layout computations
-    window.addEventListener('resize', () => { resizeCanvas(); updateAll(); });
     window.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            resizeCanvas();
-            updateAll();
-        }, 50); 
+        calculateTieIn();
     });
-
-    function resizeCanvas() {
-        const rect = canvas.parentElement.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        canvas.style.width = rect.width + 'px';
-        canvas.style.height = rect.height + 'px';
-        
-        // Reset scale factors explicitly to clean transformations
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(dpr, dpr);
-    }
-
-    function setCalcMode(mode) {
-        calcMode = mode;
-        document.getElementById('mode-std').classList.toggle('active', mode === 'STD');
-        document.getElementById('mode-fixed').classList.toggle('active', mode === 'FIXED');
-        
-        if (mode === 'FIXED') {
-            document.getElementById('linear-group').style.display = 'block';
-            document.getElementById('angle-group').style.display = 'none';
-            document.getElementById('fittingLabel').innerText = "Calculated Elbow:";
-        } else {
-            document.getElementById('linear-group').style.display = 'none';
-            document.getElementById('angle-group').style.display = 'block';
-            document.getElementById('fittingLabel').innerText = "Selected Elbow:";
-        }
-        updateAll();
-    }
 
     function setDir(type, value) {
         if (type === 'rise') {
@@ -239,153 +154,33 @@
             document.getElementById('btn-off-right').classList.toggle('active', value === 'Right');
             document.getElementById('btn-off-left').classList.toggle('active', value === 'Left');
         }
-        updateAll();
+        calculateTieIn();
     }
 
-    function setView(viewName) {
-        currentView = viewName;
-        const views = ['iso', 'plan', 'elev', 'enda', 'endb'];
-        views.forEach(v => document.getElementById(`view-${v}`).classList.toggle('active', v === viewName.toLowerCase()));
-        
-        if (viewName === 'ISO') { rotX = -0.35; rotY = 0.55; }
-        else if (viewName === 'PLAN') { rotX = -Math.PI/2; rotY = 0; } 
-        else if (viewName === 'ELEV') { rotX = 0; rotY = 0; }        
-        else if (viewName === 'ENDA') { rotX = 0; rotY = Math.PI/2; } 
-        else if (viewName === 'ENDB') { rotX = 0; rotY = -Math.PI/2; } 
-        
-        updateAll();
-    }
-
-    function updateAll() {
+    function calculateTieIn() {
         const V = Math.abs(parseFloat(document.getElementById('rise').value)) || 0;
         const S = Math.abs(parseFloat(document.getElementById('offset').value)) || 0;
-        
-        let travel = 0;
-        let rollDeg = 0;
-        let elbowDeg = 0;
-        let displayL = 0;
+        const L = Math.abs(parseFloat(document.getElementById('linearDist').value)) || 0;
+        const elbowDeg = parseFloat(document.getElementById('angle').value);
 
-        if (calcMode === 'STD') {
-            elbowDeg = parseFloat(document.getElementById('angle').value);
-            const diagonalPlane = Math.sqrt(Math.pow(V, 2) + Math.pow(S, 2));
-            const angleRad = elbowDeg * (Math.PI / 180);
-            
-            travel = diagonalPlane / (Math.sin(angleRad) || 1);
-            displayL = travel * Math.cos(angleRad);
-            
-            if (V > 0) {
-                rollDeg = Math.atan2(S, V) * (180 / Math.PI);
-            } else {
-                rollDeg = S > 0 ? 90 : 0;
-            }
-            document.getElementById('fittingOut').innerText = elbowDeg + "°";
-        } else {
-            const L = Math.abs(parseFloat(document.getElementById('linearDist').value)) || 0;
-            displayL = L;
-            
-            travel = Math.sqrt(Math.pow(V, 2) + Math.pow(S, 2) + Math.pow(L, 2));
-            
-            if (travel > 0) {
-                elbowDeg = Math.acos(V / travel) * (180 / Math.PI);
-            } else {
-                elbowDeg = 0;
-            }
-            
+        // 1. Calculate the actual 3D straight-line distance space between fixed points
+        const diagonalSpace = Math.sqrt(Math.pow(V, 2) + Math.pow(S, 2) + Math.pow(L, 2));
+
+        // 2. Calculate Travel along the specific chosen elbow path 
+        // For a chosen elbow angle, Travel C-C = True Diagonal Space / sin(elbow)
+        const angleRad = elbowDeg * (Math.PI / 180);
+        let travel = diagonalSpace / (Math.sin(angleRad) || 1);
+
+        // 3. Calculate compound roll orientation angle relative to the run plane
+        // Using atan2 across the horizontal and vertical planes handles shifts cleanly
+        let rollDeg = 0;
+        if (L > 0 || S > 0) {
             rollDeg = Math.atan2(S, L) * (180 / Math.PI);
-            document.getElementById('fittingOut').innerText = elbowDeg.toFixed(2) + "°";
         }
 
+        // Output figures cleanly to UI panels
         document.getElementById('travelOut').innerText = travel.toFixed(1) + " mm";
         document.getElementById('rollOut').innerText = Math.abs(rollDeg).toFixed(2) + "°";
-        
-        drawPipeMockup(V, S, displayL);
-    }
-
-    function drawPipeMockup(v, s, l) {
-        // Use styled sizes directly to isolate pixel scaling glitches
-        const w = canvas.clientWidth;
-        const h = canvas.clientHeight;
-        
-        ctx.clearRect(0, 0, w, h);
-        
-        const yMult = (riseDir === 'Up') ? -1 : 1;
-        const xMult = (offsetDir === 'Right') ? 1 : -1;
-        
-        const p1 = { x: 0, y: 0, z: 0 };
-        const p2 = { x: 0, y: v * yMult, z: 0 }; 
-        const p3 = { x: s * xMult, y: v * yMult, z: l }; 
-        
-        function project(pt) {
-            let x1 = pt.x * Math.cos(rotY) - pt.z * Math.sin(rotY);
-            let z1 = pt.x * Math.sin(rotY) + pt.z * Math.cos(rotY);
-            let y2 = pt.y * Math.cos(rotX) - z1 * Math.sin(rotX);
-            
-            const maxDim = Math.max(v, s, l, 10);
-            const scale = (Math.min(w, h) / maxDim) * 0.45;
-            
-            return {
-                x: (w / 2) + x1 * scale,
-                y: (h / 2) + y2 * scale
-            };
-        }
-        
-        const s1 = project(p1);
-        const s2 = project(p2);
-        const s3 = project(p3);
-        
-        // Render 3D Wireframe Boundary Boxes
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
-        ctx.lineWidth = 1;
-        ctx.setLineDash([3, 3]);
-        
-        const corners = [
-            {x: 0, y: 0, z: l}, {x: s*xMult, y: 0, z: 0}, {x: s*xMult, y: 0, z: l},
-            {x: 0, y: v*yMult, z: l}, {x: s*xMult, y: v*yMult, z: 0}
-        ].map(project);
-        
-        ctx.beginPath();
-        ctx.moveTo(s1.x, s1.y); ctx.lineTo(corners[1].x, corners[1].y);
-        ctx.lineTo(corners[2].x, corners[2].y); ctx.lineTo(corners[0].x, corners[0].y);
-        ctx.closePath(); ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.moveTo(corners[1].x, corners[1].y); ctx.lineTo(corners[4].x, corners[4].y);
-        ctx.moveTo(corners[0].x, corners[0].y); ctx.lineTo(corners[3].x, corners[3].y);
-        ctx.stroke();
-        
-        // Render Centerline Segments
-        ctx.setLineDash([]);
-        ctx.lineWidth = 4;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        
-        // Drop leg segment
-        ctx.strokeStyle = "#00ffcc"; 
-        ctx.beginPath();
-        ctx.moveTo(s1.x, s1.y);
-        ctx.lineTo(s2.x, s2.y);
-        ctx.stroke();
-        
-        // Spool travel segment
-        ctx.strokeStyle = "#2563eb"; 
-        ctx.beginPath();
-        ctx.moveTo(s2.x, s2.y);
-        ctx.lineTo(s3.x, s3.y);
-        ctx.stroke();
-        
-        // Nodes / Center Points
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath(); ctx.arc(s1.x, s1.y, 4, 0, 2*Math.PI); ctx.fill();
-        ctx.beginPath(); ctx.arc(s2.x, s2.y, 4, 0, 2*Math.PI); ctx.fill();
-        ctx.fillStyle = "#00ffcc";
-        ctx.beginPath(); ctx.arc(s3.x, s3.y, 5, 0, 2*Math.PI); ctx.fill();
-        
-        ctx.fillStyle = "#bbbbbb";
-        ctx.font = "10px monospace";
-        ctx.fillText("START (A)", s1.x + 8, s1.y - 4);
-        ctx.fillText("ELBOW (B)", s2.x + 8, s2.y - 4);
-        ctx.fillStyle = "#00ffcc";
-        ctx.fillText("TARGET", s3.x + 8, s3.y - 4);
     }
 </script>
 </body>

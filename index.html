@@ -110,8 +110,8 @@
     
     <!-- Calculation Mode Switcher -->
     <div class="view-bar" style="margin-bottom: 15px;">
-        <button id="mode-std" class="view-btn active" onclick="setCalcMode('STD')" style="font-size: 13px; padding: 10px 0;">STANDARD RUN</button>
-        <button id="mode-fixed" class="view-btn" onclick="setCalcMode('FIXED')" style="font-size: 13px; padding: 10px 0; border-left: none;">FIXED-POINT 3D</button>
+        <button id="mode-std" class="view-btn active" onclick="setCalcMode('STD')">STANDARD RUN</button>
+        <button id="mode-fixed" class="view-btn" onclick="setCalcMode('FIXED')" style="border-left: none;">FIXED-POINT 3D</button>
     </div>
     
     <div class="input-group">
@@ -190,16 +190,26 @@
     const canvas = document.getElementById('pipeCanvas');
     const ctx = canvas.getContext('2d');
 
+    // Make sure DOM elements exist and layout settles before firing layout computations
     window.addEventListener('resize', () => { resizeCanvas(); updateAll(); });
-    window.addEventListener('DOMContentLoaded', () => { resizeCanvas(); updateAll(); });
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            resizeCanvas();
+            updateAll();
+        }, 50); 
+    });
 
     function resizeCanvas() {
         const rect = canvas.parentElement.getBoundingClientRect();
-        canvas.width = rect.width * window.devicePixelRatio;
-        canvas.height = rect.height * window.devicePixelRatio;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
         canvas.style.width = rect.width + 'px';
         canvas.style.height = rect.height + 'px';
-        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        
+        // Reset scale factors explicitly to clean transformations
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
     }
 
     function setCalcMode(mode) {
@@ -260,8 +270,8 @@
             const diagonalPlane = Math.sqrt(Math.pow(V, 2) + Math.pow(S, 2));
             const angleRad = elbowDeg * (Math.PI / 180);
             
-            travel = diagonalPlane / Math.sin(angleRad);
-            displayL = travel * Math.cos(angleRad); // Calculated forward depth
+            travel = diagonalPlane / (Math.sin(angleRad) || 1);
+            displayL = travel * Math.cos(angleRad);
             
             if (V > 0) {
                 rollDeg = Math.atan2(S, V) * (180 / Math.PI);
@@ -292,8 +302,10 @@
     }
 
     function drawPipeMockup(v, s, l) {
-        const w = canvas.width / window.devicePixelRatio;
-        const h = canvas.height / window.devicePixelRatio;
+        // Use styled sizes directly to isolate pixel scaling glitches
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        
         ctx.clearRect(0, 0, w, h);
         
         const yMult = (riseDir === 'Up') ? -1 : 1;
@@ -308,7 +320,7 @@
             let z1 = pt.x * Math.sin(rotY) + pt.z * Math.cos(rotY);
             let y2 = pt.y * Math.cos(rotX) - z1 * Math.sin(rotX);
             
-            const maxDim = Math.max(v, s, l, 100);
+            const maxDim = Math.max(v, s, l, 10);
             const scale = (Math.min(w, h) / maxDim) * 0.45;
             
             return {
@@ -322,9 +334,9 @@
         const s3 = project(p3);
         
         // Render 3D Wireframe Boundary Boxes
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
         ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
+        ctx.setLineDash([3, 3]);
         
         const corners = [
             {x: 0, y: 0, z: l}, {x: s*xMult, y: 0, z: 0}, {x: s*xMult, y: 0, z: l},
@@ -368,7 +380,7 @@
         ctx.fillStyle = "#00ffcc";
         ctx.beginPath(); ctx.arc(s3.x, s3.y, 5, 0, 2*Math.PI); ctx.fill();
         
-        ctx.fillStyle = "#888";
+        ctx.fillStyle = "#bbbbbb";
         ctx.font = "10px monospace";
         ctx.fillText("START (A)", s1.x + 8, s1.y - 4);
         ctx.fillText("ELBOW (B)", s2.x + 8, s2.y - 4);

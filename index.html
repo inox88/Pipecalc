@@ -24,7 +24,7 @@
         h2 { text-align: center; color: #00ffcc; margin-top: 0; margin-bottom: 20px; font-size: 16px; letter-spacing: 1px; }
         .input-group { margin-bottom: 14px; }
         label { display: block; margin-bottom: 6px; font-weight: bold; color: #bbbbbb; font-size: 14px; }
-        input[type="number"], select {
+        input[type="number"] {
             width: 100%;
             padding: 12px;
             border: 1px solid #333;
@@ -109,21 +109,14 @@
         <input type="number" id="linearDist" value="435.5" oninput="calculateTieIn()">
     </div>
 
-    <div class="input-group">
-        <label>Fitting Degree to Use</label>
-        <select id="angle" onchange="calculateTieIn()">
-            <option value="45" selected>45° Elbow</option>
-            <option value="90">90° Elbow</option>
-            <option value="30">30° Elbow</option>
-            <option value="22.5">22.5° Elbow</option>
-            <option value="11.25">11.25° Elbow</option>
-        </select>
-    </div>
-
     <div class="output-box">
         <div class="output-line">
             <span>True Travel (Center-to-Center):</span>
             <span class="val" id="travelOut">-</span>
+        </div>
+        <div class="output-line">
+            <span>Required Elbow Degree:</span>
+            <span class="val" id="elbowOut">-</span>
         </div>
         <div class="output-line">
             <span>Elbow Roll Orientation:</span>
@@ -161,25 +154,25 @@
         const V = Math.abs(parseFloat(document.getElementById('rise').value)) || 0;
         const S = Math.abs(parseFloat(document.getElementById('offset').value)) || 0;
         const L = Math.abs(parseFloat(document.getElementById('linearDist').value)) || 0;
-        const elbowDeg = parseFloat(document.getElementById('angle').value);
 
-        // 1. Calculate the actual 3D straight-line distance space between fixed points
-        const diagonalSpace = Math.sqrt(Math.pow(V, 2) + Math.pow(S, 2) + Math.pow(L, 2));
+        // 1. Calculate True Center-to-Center Travel (The absolute straight-line space)
+        const travel = Math.sqrt(Math.pow(V, 2) + Math.pow(S, 2) + Math.pow(L, 2));
 
-        // 2. Calculate Travel along the specific chosen elbow path 
-        // For a chosen elbow angle, Travel C-C = True Diagonal Space / sin(elbow)
-        const angleRad = elbowDeg * (Math.PI / 180);
-        let travel = diagonalSpace / (Math.sin(angleRad) || 1);
+        // 2. Calculate the exact fitting angle needed to clear the vertical change
+        let elbowDeg = 0;
+        if (travel > 0) {
+            elbowDeg = Math.acos(V / travel) * (180 / Math.PI);
+        }
 
-        // 3. Calculate compound roll orientation angle relative to the run plane
-        // Using atan2 across the horizontal and vertical planes handles shifts cleanly
+        // 3. Calculate compound roll orientation angle on the pipe face
         let rollDeg = 0;
         if (L > 0 || S > 0) {
             rollDeg = Math.atan2(S, L) * (180 / Math.PI);
         }
 
-        // Output figures cleanly to UI panels
+        // Output clean figures to the interface
         document.getElementById('travelOut').innerText = travel.toFixed(1) + " mm";
+        document.getElementById('elbowOut').innerText = elbowDeg.toFixed(2) + "°";
         document.getElementById('rollOut').innerText = Math.abs(rollDeg).toFixed(2) + "°";
     }
 </script>

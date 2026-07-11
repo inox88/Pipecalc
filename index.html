@@ -104,10 +104,11 @@
     </style>
 </head>
 <body>
+
 <div class="container">
     <h2>SHOP FLOOR BLUEPRINT VISUALIZER</h2>
     
-    <!-- Mode Selector Bar -->
+    <!-- Calculation Mode Switcher -->
     <div class="view-bar" style="margin-bottom: 15px;">
         <button id="mode-std" class="view-btn active" onclick="setCalcMode('STD')" style="font-size: 13px; padding: 10px 0;">STANDARD RUN</button>
         <button id="mode-fixed" class="view-btn" onclick="setCalcMode('FIXED')" style="font-size: 13px; padding: 10px 0; border-left: none;">FIXED-POINT 3D</button>
@@ -131,13 +132,13 @@
         </div>
     </div>
 
-    <!-- New Fixed-Point Field (Hidden by default in Standard Mode) -->
+    <!-- Hidden field for Fixed-Point Constraint Calculations -->
     <div class="input-group" id="linear-group" style="display: none;">
         <label>Linear Distance / Forward Run (mm)</label>
         <input type="number" id="linearDist" value="435.5" oninput="updateAll()">
     </div>
 
-    <!-- Fitting Selection (Disabled/Hidden during Fixed Point Mode) -->
+    <!-- Fitting Selection Field (Used only in Standard Mode) -->
     <div class="input-group" id="angle-group">
         <label>Fitting Angle</label>
         <select id="angle" onchange="updateAll()">
@@ -167,7 +168,7 @@
             <span class="val" id="travelOut">-</span>
         </div>
         <div class="output-line">
-            <span id="fittingLabel">Required Elbow Degree:</span>
+            <span id="fittingLabel">Selected Elbow:</span>
             <span class="val" id="fittingOut">-</span>
         </div>
         <div class="output-line">
@@ -178,7 +179,7 @@
 </div>
 
 <script>
-    let calcMode = 'STD'; // Can be 'STD' or 'FIXED'
+    let calcMode = 'STD'; 
     let riseDir = 'Up';
     let offsetDir = 'Right';
     let currentView = 'ISO';
@@ -189,7 +190,6 @@
     const canvas = document.getElementById('pipeCanvas');
     const ctx = canvas.getContext('2d');
 
-    // Attach immediate event listeners for loading
     window.addEventListener('resize', () => { resizeCanvas(); updateAll(); });
     window.addEventListener('DOMContentLoaded', () => { resizeCanvas(); updateAll(); });
 
@@ -199,7 +199,7 @@
         canvas.height = rect.height * window.devicePixelRatio;
         canvas.style.width = rect.width + 'px';
         canvas.style.height = rect.height + 'px';
-        ctx.getContext('2d').scale(window.devicePixelRatio, window.devicePixelRatio);
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     }
 
     function setCalcMode(mode) {
@@ -253,70 +253,128 @@
         let travel = 0;
         let rollDeg = 0;
         let elbowDeg = 0;
+        let displayL = 0;
 
         if (calcMode === 'STD') {
-            // Standard App Logic: User picks the fitting angle
             elbowDeg = parseFloat(document.getElementById('angle').value);
-            
-            // Calculate flat diagonal plane
             const diagonalPlane = Math.sqrt(Math.pow(V, 2) + Math.pow(S, 2));
-            
-            // Standard calculation formula for Travel based on standard fitting selection
             const angleRad = elbowDeg * (Math.PI / 180);
-            travel = diagonalPlane / Math.sin(angleRad);
             
-            // Calculate standard roll orientation 
+            travel = diagonalPlane / Math.sin(angleRad);
+            displayL = travel * Math.cos(angleRad); // Calculated forward depth
+            
             if (V > 0) {
                 rollDeg = Math.atan2(S, V) * (180 / Math.PI);
             } else {
                 rollDeg = S > 0 ? 90 : 0;
             }
-            
             document.getElementById('fittingOut').innerText = elbowDeg + "°";
         } else {
-            // FIXED-POINT 3D MODE: Pure constraint calculation
             const L = Math.abs(parseFloat(document.getElementById('linearDist').value)) || 0;
+            displayL = L;
             
-            // Step A: Calculate True 3D Travel Diagonal
             travel = Math.sqrt(Math.pow(V, 2) + Math.pow(S, 2) + Math.pow(L, 2));
             
-            // Step B: Calculate exact fitting degree required to hit the target point
             if (travel > 0) {
                 elbowDeg = Math.acos(V / travel) * (180 / Math.PI);
             } else {
                 elbowDeg = 0;
             }
             
-            // Step C: Calculate exact roll placement angle on the pipe face
             rollDeg = Math.atan2(S, L) * (180 / Math.PI);
-            
             document.getElementById('fittingOut').innerText = elbowDeg.toFixed(2) + "°";
         }
 
-        // Output results to UI panels
         document.getElementById('travelOut').innerText = travel.toFixed(1) + " mm";
         document.getElementById('rollOut').innerText = Math.abs(rollDeg).toFixed(2) + "°";
         
-        drawPipeMockup(V, S, calcMode === 'STD' ? travel * 0.5 : parseFloat(document.getElementById('linearDist').value || 0));
+        drawPipeMockup(V, S, displayL);
     }
 
     function drawPipeMockup(v, s, l) {
-        // Clear canvas and draw simple 3D wireframe bounding box representation
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#1e1e1e";
+        const w = canvas.width / window.devicePixelRatio;
+        const h = canvas.height / window.devicePixelRatio;
+        ctx.clearRect(0, 0, w, h);
         
-        ctx.save();
-        ctx.translate(canvas.width / (2 * window.devicePixelRatio), canvas.height / (2 * window.devicePixelRatio));
+        const yMult = (riseDir === 'Up') ? -1 : 1;
+        const xMult = (offsetDir === 'Right') ? 1 : -1;
         
-        // Simple visual confirmation text on canvas for verification
+        const p1 = { x: 0, y: 0, z: 0 };
+        const p2 = { x: 0, y: v * yMult, z: 0 }; 
+        const p3 = { x: s * xMult, y: v * yMult, z: l }; 
+        
+        function project(pt) {
+            let x1 = pt.x * Math.cos(rotY) - pt.z * Math.sin(rotY);
+            let z1 = pt.x * Math.sin(rotY) + pt.z * Math.cos(rotY);
+            let y2 = pt.y * Math.cos(rotX) - z1 * Math.sin(rotX);
+            
+            const maxDim = Math.max(v, s, l, 100);
+            const scale = (Math.min(w, h) / maxDim) * 0.45;
+            
+            return {
+                x: (w / 2) + x1 * scale,
+                y: (h / 2) + y2 * scale
+            };
+        }
+        
+        const s1 = project(p1);
+        const s2 = project(p2);
+        const s3 = project(p3);
+        
+        // Render 3D Wireframe Boundary Boxes
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        
+        const corners = [
+            {x: 0, y: 0, z: l}, {x: s*xMult, y: 0, z: 0}, {x: s*xMult, y: 0, z: l},
+            {x: 0, y: v*yMult, z: l}, {x: s*xMult, y: v*yMult, z: 0}
+        ].map(project);
+        
+        ctx.beginPath();
+        ctx.moveTo(s1.x, s1.y); ctx.lineTo(corners[1].x, corners[1].y);
+        ctx.lineTo(corners[2].x, corners[2].y); ctx.lineTo(corners[0].x, corners[0].y);
+        ctx.closePath(); ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(corners[1].x, corners[1].y); ctx.lineTo(corners[4].x, corners[4].y);
+        ctx.moveTo(corners[0].x, corners[0].y); ctx.lineTo(corners[3].x, corners[3].y);
+        ctx.stroke();
+        
+        // Render Centerline Segments
+        ctx.setLineDash([]);
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        
+        // Drop leg segment
+        ctx.strokeStyle = "#00ffcc"; 
+        ctx.beginPath();
+        ctx.moveTo(s1.x, s1.y);
+        ctx.lineTo(s2.x, s2.y);
+        ctx.stroke();
+        
+        // Spool travel segment
+        ctx.strokeStyle = "#2563eb"; 
+        ctx.beginPath();
+        ctx.moveTo(s2.x, s2.y);
+        ctx.lineTo(s3.x, s3.y);
+        ctx.stroke();
+        
+        // Nodes / Center Points
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.arc(s1.x, s1.y, 4, 0, 2*Math.PI); ctx.fill();
+        ctx.beginPath(); ctx.arc(s2.x, s2.y, 4, 0, 2*Math.PI); ctx.fill();
         ctx.fillStyle = "#00ffcc";
-        ctx.font = "12px sans-serif";
-        ctx.fillText(`Mode: ${calcMode} View`, -100, -100);
-        ctx.restore();
+        ctx.beginPath(); ctx.arc(s3.x, s3.y, 5, 0, 2*Math.PI); ctx.fill();
+        
+        ctx.fillStyle = "#888";
+        ctx.font = "10px monospace";
+        ctx.fillText("START (A)", s1.x + 8, s1.y - 4);
+        ctx.fillText("ELBOW (B)", s2.x + 8, s2.y - 4);
+        ctx.fillStyle = "#00ffcc";
+        ctx.fillText("TARGET", s3.x + 8, s3.y - 4);
     }
 </script>
 </body>
 </html>
-
-    
-        
